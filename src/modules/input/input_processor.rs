@@ -24,7 +24,9 @@ use crate::modules::input::{
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
+/// use cli_rust::modules::input::CommandProducer;
+///
 /// let pieces = vec!["cat".to_string(), ">".to_string(), "output.txt".to_string()];
 /// let cmd = CommandProducer::produce_command(pieces).unwrap();
 /// assert_eq!(cmd.name, "cat");
@@ -50,7 +52,9 @@ impl CommandProducer {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
+    /// use cli_rust::modules::input::CommandProducer;
+    ///
     /// // Simple command with no redirection
     /// let cmd = CommandProducer::produce_command(vec!["echo".to_string(), "hello".to_string()]).unwrap();
     ///

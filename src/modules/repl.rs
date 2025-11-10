@@ -1,10 +1,8 @@
-use crate::modules::command::Command;
-use crate::modules::environment::Environment;
 use crate::modules::init::Init;
 use crate::modules::input::{InputProcessor, InputProcessorBuilder};
+use crate::modules::pipeline::Pipeline;
 use crate::modules::runner::Runner;
 
-use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
@@ -14,6 +12,7 @@ use std::path::PathBuf;
 /// - Execute commands (both custom and system)
 /// - Set and use environment variables
 /// - Use I/O redirection
+/// - Execute pipelines
 /// - View help information
 /// - Exit the shell
 ///
@@ -21,7 +20,7 @@ use std::path::PathBuf;
 ///
 /// The REPL coordinates three main components:
 /// - `InputProcessor` - Parses command input
-/// - `Runner` - Executes commands
+/// - `Pipeline` - Executes command pipelines
 /// - `Init` - Provides environment and configuration
 ///
 /// # Built-in Commands
@@ -43,8 +42,8 @@ use std::path::PathBuf;
 pub struct Repl {
     /// Path to custom command binaries
     bin_path: PathBuf,
-    /// Command execution engine
-    runner: Runner,
+    /// Pipeline executor
+    pipeline: Pipeline,
     /// Command parser and processor
     input_processor: InputProcessor,
 }
@@ -71,12 +70,13 @@ impl Repl {
     pub fn new(init: &Init) -> Self {
         let bin_path = init.bin_path.clone();
         let runner = Runner::new(bin_path.clone());
+        let pipeline = Pipeline::new(runner);
 
         let input_processor = InputProcessorBuilder::new().build();
 
         Repl {
             bin_path,
-            runner,
+            pipeline,
             input_processor,
         }
     }
@@ -117,56 +117,30 @@ impl Repl {
                     // Process as command
                     match self.input_processor.process(input, init.env_vars()) {
                         Ok(parsed_cmds) => {
-                            // If any parsed command expands to a builtin like `exit` or `help`,
-                            // handle it here (after expansion). This allows constructs like
-                            // $x$y to expand to `exit` and be treated as the builtin.
-                            let mut should_break = false;
-                            for pc in parsed_cmds {
-                                // Handle builtins after expansion
-                                if pc.name == "exit" {
-                                    println!("Goodbye!");
-                                    should_break = true;
-                                    break;
-                                }
-                                if pc.name == "help" && pc.args.is_empty() {
-                                    self.show_help();
-                                    continue;
-                                }
+                            // Check if any command in the pipeline is 'exit'
+                            // For exit in a pipeline, we exit the shell
+                            if parsed_cmds.iter().any(|cmd| cmd.name == "exit") {
+                                println!("Goodbye!");
+                                break;
+                            }
 
-                                // Convert parsed command to runner::Command with redirection support
-                                let mut cmd = Command::new(pc.name.clone(), pc.args.clone());
+                            // Check if it's a single 'help' command
+                            if parsed_cmds.len() == 1
+                                && parsed_cmds[0].name == "help"
+                                && parsed_cmds[0].args.is_empty()
+                            {
+                                self.show_help();
+                                continue;
+                            }
 
-                                // Add redirection information
-                                if let Some(stdin_file) = pc.stdin {
-                                    // Read the file content for stdin redirection
-                                    match fs::read_to_string(&stdin_file) {
-                                        Ok(content) => {
-                                            cmd = cmd.with_stdin(content);
-                                        }
-                                        Err(e) => {
-                                            eprintln!(
-                                                "Error reading stdin file '{}': {}",
-                                                stdin_file, e
-                                            );
-                                            continue;
-                                        }
+                            // Execute the pipeline
+                            match self.pipeline.execute(parsed_cmds, init.env_vars()) {
+                                Ok(output) => {
+                                    if !output.trim().is_empty() {
+                                        print!("{}", output);
                                     }
                                 }
-                                if let Some(stdout) = pc.stdout {
-                                    cmd = cmd
-                                        .with_stdout(stdout)
-                                        .with_append_stdout(pc.append_stdout);
-                                }
-                                if let Some(stderr) = pc.stderr {
-                                    cmd = cmd
-                                        .with_stderr(stderr)
-                                        .with_append_stderr(pc.append_stderr);
-                                }
-
-                                self.execute_command(cmd, init.env_vars());
-                            }
-                            if should_break {
-                                break;
+                                Err(e) => eprintln!("{}", e),
                             }
                         }
                         Err(e) => eprintln!("parse error: {e}"),
@@ -176,19 +150,6 @@ impl Repl {
                     eprintln!("Error reading input: {}", error);
                     break;
                 }
-            }
-        }
-    }
-
-    fn execute_command(&self, command: Command, env_vars: &Environment) {
-        match self.runner.execute(command, env_vars) {
-            Ok(output) => {
-                if !output.trim().is_empty() {
-                    print!("{}", output);
-                }
-            }
-            Err(error) => {
-                eprintln!("Error executing command: {}", error);
             }
         }
     }
@@ -252,7 +213,9 @@ impl Default for Repl {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::modules::command::Command;
     use std::env;
+    use std::fs;
 
     #[test]
     fn test_repl_creation() {

@@ -2,8 +2,8 @@ Project of a simple CLI on Rust
 
 [![CI](https://github.com/fatalem0/MHS-Software-Design-25/actions/workflows/rust.yml/badge.svg?branch=task%2Fhw2)](https://github.com/fatalem0/MHS-Software-Design-25/actions/workflows/rust.yml)
 
-![Static Badge](https://img.shields.io/badge/cov-87%25%20%E2%94%82%2091%25%20%E2%94%82%2082%25-21b577.svg)
-
+Test coverage (covered regions | executed functions | covered lines): 
+![Static Badge](https://img.shields.io/badge/cov-88%25%20%E2%94%82%2091%25%20%E2%94%82%2084%25-21b577.svg)
 
 ## Supported functionality:
 - can run own implementations of `wc`, `echo`, `cat`, `pwd`
@@ -12,6 +12,7 @@ Project of a simple CLI on Rust
 - setting environment variables
 - redirecting `stdin`, `stdout`, `stderr`
 - substition of environment variables in weak quotes and in cases without qoutes
+- pipelines: chain commands together with `|` operator; the standard output (stdout) of each command is connected to the standard input (stdin) of the next command in the pipeline
 
 ## Build and run instructions:
 - install Rust toolchain (https://rustup.rs/)
@@ -42,6 +43,12 @@ Set x=ex
 Set y=it
 > $x$y
 Goodbye!
+```
+
+```
+> cat file.txt | wc -l
+> cat file1.txt file2.txt | grep "pattern" > results.txt
+> cat data.txt | grep "error" | wc -l
 ```
 
 ## Testing
