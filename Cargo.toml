@@ -28,7 +28,12 @@ path = "src/bin/wc.rs"
 name = "pwd"
 path = "src/bin/pwd.rs"
 
+[[bin]]
+name = "grep"
+path = "src/bin/grep.rs"
+
 [dependencies]
+clap = { version = "4.5", features = ["derive"] }
 env = "1.0.1"
 pretty_assertions = "1.4.1"
 regex = "1.12.2"

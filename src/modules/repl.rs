@@ -187,6 +187,11 @@ impl Repl {
         println!("  cat [files...]     - Display file contents or read from stdin");
         println!("  wc [files...]      - Count lines, words, and bytes in files or stdin");
         println!("  pwd               - Print current working directory");
+        println!("  grep [options] pattern [files...] - Search for pattern in files or stdin");
+        println!("    Options:");
+        println!("      -w, --word-regexp    Search for whole words only");
+        println!("      -i, --ignore-case    Case-insensitive matching");
+        println!("      -A, --after-context NUM  Print NUM lines after matching lines");
         println!("  help              - Show this help message");
         println!("  exit              - Exit the shell");
         println!();
@@ -198,7 +203,7 @@ impl Repl {
         println!("  cmd >> file        - Redirect stdout to file (append)");
         println!("  cmd 2> file        - Redirect stderr to file (overwrite)");
         println!("  cmd 2>> file       - Redirect stderr to file (append)");
-        // println!("  cmd1 | cmd2        - Pipe output between commands");
+        println!("  cmd1 | cmd2        - Pipe output between commands");
         println!("  [command]          - Execute any system command or fallback to built-in");
     }
 }
