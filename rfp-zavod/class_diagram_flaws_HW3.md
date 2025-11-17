@@ -1,0 +1,17 @@
+4-я Задача
+- **Дублирование вычисляемых данных (DRY)**: RepairZone хранит numberOfPlaces и freePlaces, которые легко вычисляются из repairPlaces → избыточные атрибуты, риск несогласованности.
+- **Дублирование занятости**: RepairPlace.isOccupied (bool) + RepairZone.freePlaces -одна инфа в двух местах; обновление требует правки везде → "Duplicate State".
+- **Дублирование атрибутов авто**: Order (carModel, color) и Car (model, color) - при изменении в заказе Car становится неконсистентным.
+- **Дублирование работника в ремонте**: Repair: repairAssignedTo (Worker) + repairTeam (RepairTeam с teamWorkers) - один работник в двух местах → риск рассинхронизации.
+- **Дублирование истории ремонта**: Car.repairHistory (List<Repair>) + обратные ссылки через Defect/Repair → двунаправленная связь без владельца, риск циклов и двойного удаления.
+- **Избыточные поля в отчётах**: ShiftReport.totalRepairs/totalRepairTime и QualityControlReport.totalRepairs - вычисляются из списков ремонтов → "Stored Derived Attribute".
+- **Хранение статистики**: QualityControlReport.defectStatistics (map<int,int>) - вычисляемая данные; лучше генерировать на лету, чтобы избежать устаревания.
+- **Primitive Obsession**: Строки вместо enum/классов: Repair.shiftTime, Worker.role, Car.productionStage, AccountingReport.workerShiftDetails (List<string>).
+- **Длинная цепочка навигации**: Для поиска работника: Car → Defect → Repair → RepairTeam → teamWorkers или Repair → repairAssignedTo - два пути, путаница и избыточность.
+- **Избыточная гранулярность**: Repair → RepairPlace → RepairZone → RepairTeam → Worker - 4 уровня для места/бригады; хватит 2 (Repair → Worker/Team + RepairBay).
+- **Отсутствие композиции**: RepairZone → RepairPlace и RepairTeam → Worker - должны быть композицией (зависимость существования), а не простой ассоциацией.
+- **Лишний класс: RepairPlace** - только для isOccupied; можно в Repair (assignedBayId + статус) или в RepairZone (пул ID) - переусложнение.
+- **Дублирование связи "исправляет"**: Repair → Defect + Car → repairHistory → Repair + Car → defectList → Defect - три пути к одному факту → избыточность.
+- **Циклические bidirectional связи:** Car ↔ ProductionPlan/Defect/Repair - при удалении чистить 3 списка вручную → риск висячих ссылок.
+- **Избыточный available у Worker**: bool available - вычисляется из активных Repair (repairEndTime = null); хранение → рассинхронизация.
+- **Отчёты без шаблона**: QualityControlReport, ShiftReport, AccountingReport - повторяют ID, дату, вычисляемые поля; должны наследоваться от абстрактного Report (DRY).
