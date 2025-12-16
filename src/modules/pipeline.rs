@@ -70,6 +70,7 @@ impl Pipeline {
     ///
     /// * `parsed_cmds` - Vector of parsed commands to execute in sequence
     /// * `env_vars` - Environment variables available to commands
+    /// * `current_dir` - Current working directory for command execution
     ///
     /// # Returns
     ///
@@ -86,17 +87,19 @@ impl Pipeline {
     /// let runner = Runner::new(PathBuf::from("target/release"));
     /// let pipeline = Pipeline::new(runner);
     /// let env = Environment::new();
+    /// let current_dir = PathBuf::from(".");
     ///
     /// let cmd1 = Command::new("echo".to_string(), vec!["hello".to_string()]);
     /// let cmd2 = Command::new("cat".to_string(), vec![]);
     ///
     /// // This would execute: echo hello | cat
-    /// // let result = pipeline.execute(vec![cmd1, cmd2], &env);
+    /// // let result = pipeline.execute(vec![cmd1, cmd2], &env, &current_dir);
     /// ```
     pub fn execute(
         &self,
         parsed_cmds: Vec<crate::modules::input::command::Command>,
         env_vars: &Environment,
+        current_dir: &std::path::PathBuf,
     ) -> Result<String, String> {
         if parsed_cmds.is_empty() {
             return Ok(String::new());
@@ -106,7 +109,7 @@ impl Pipeline {
         if parsed_cmds.len() == 1 {
             let pc = &parsed_cmds[0];
             let cmd = self.prepare_command(pc)?;
-            return self.execute_command(cmd, env_vars);
+            return self.execute_command(cmd, env_vars, current_dir);
         }
 
         // Pipeline execution: chain commands
@@ -157,7 +160,7 @@ impl Pipeline {
             }
 
             // Execute the command
-            match self.runner.execute(cmd, env_vars) {
+            match self.runner.execute(cmd, env_vars, current_dir) {
                 Ok(output) => {
                     if is_last {
                         final_output = output;
@@ -231,14 +234,20 @@ impl Pipeline {
     ///
     /// * `command` - The command to execute
     /// * `env_vars` - Environment variables available to the command
+    /// * `current_dir` - Current working directory for command execution
     ///
     /// # Returns
     ///
     /// * `Ok(String)` - The command's output
     /// * `Err(String)` - Error message if execution fails
-    fn execute_command(&self, command: Command, env_vars: &Environment) -> Result<String, String> {
+    fn execute_command(
+        &self,
+        command: Command,
+        env_vars: &Environment,
+        current_dir: &std::path::PathBuf,
+    ) -> Result<String, String> {
         self.runner
-            .execute(command, env_vars)
+            .execute(command, env_vars, current_dir)
             .map_err(|e| format!("Error executing command: {}", e))
     }
 }
@@ -261,8 +270,9 @@ mod tests {
         let runner = Runner::new(PathBuf::from("target/release"));
         let pipeline = Pipeline::new(runner);
         let env = Environment::new();
+        let current_dir = PathBuf::from(".");
 
-        let result = pipeline.execute(vec![], &env);
+        let result = pipeline.execute(vec![], &env, &current_dir);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "");
     }
@@ -272,9 +282,10 @@ mod tests {
         let runner = Runner::new(PathBuf::from("target/release"));
         let pipeline = Pipeline::new(runner);
         let env = Environment::new();
+        let current_dir = PathBuf::from(".");
 
         let cmd = ParsedCommand::new("echo".to_string(), vec!["test".to_string()]);
-        let result = pipeline.execute(vec![cmd], &env);
+        let result = pipeline.execute(vec![cmd], &env, &current_dir);
 
         assert!(result.is_ok());
         let output = result.unwrap();

@@ -3,7 +3,7 @@
 use cli_rust::modules::{
     command::Command, init::Init, input::InputProcessorBuilder, runner::Runner,
 };
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 /// Helper function to simulate REPL command processing with redirection
@@ -56,7 +56,8 @@ fn simulate_repl_command(input: &str, test_dir: &Path) -> Result<String, String>
                 }
 
                 // Execute command
-                match runner.execute(cmd, &env_vars) {
+                let current_dir = PathBuf::from(".");
+                match runner.execute(cmd, &env_vars, &current_dir) {
                     Ok(output) => {
                         if !output.trim().is_empty() {
                             final_output.push_str(&output);

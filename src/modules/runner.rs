@@ -28,8 +28,9 @@ use std::process::{Command as StdCommand, Stdio};
 /// let runner = Runner::new(PathBuf::from("target/release"));
 /// let cmd = Command::new("echo".to_string(), vec!["hello".to_string()]);
 /// let env = Environment::new();
+/// let current_dir = PathBuf::from(".");
 ///
-/// match runner.execute(cmd, &env) {
+/// match runner.execute(cmd, &env, &current_dir) {
 ///     Ok(output) => println!("Output: {}", output),
 ///     Err(e) => eprintln!("Error: {}", e),
 /// }
@@ -68,6 +69,7 @@ impl Runner {
     ///
     /// * `command` - The command to execute, including name, arguments, and I/O redirections
     /// * `env_vars` - Environment variables to pass to the executed process
+    /// * `current_dir` - Current working directory for the command execution
     ///
     /// # Returns
     ///
@@ -83,17 +85,23 @@ impl Runner {
     /// let runner = Runner::new(PathBuf::from("target/release"));
     /// let cmd = Command::new("cat".to_string(), vec!["file.txt".to_string()]);
     /// let env = Environment::new();
+    /// let current_dir = PathBuf::from(".");
     ///
-    /// let output = runner.execute(cmd, &env).unwrap();
+    /// let output = runner.execute(cmd, &env, &current_dir).unwrap();
     /// println!("{}", output);
     /// ```
-    pub fn execute(&self, command: Command, env_vars: &Environment) -> io::Result<String> {
+    pub fn execute(
+        &self,
+        command: Command,
+        env_vars: &Environment,
+        current_dir: &PathBuf,
+    ) -> io::Result<String> {
         let custom_binary_path = self.bin_path.join(&command.name);
 
         if custom_binary_path.exists() {
-            self.execute_custom_binary(&command, &custom_binary_path, env_vars)
+            self.execute_custom_binary(&command, &custom_binary_path, env_vars, current_dir)
         } else {
-            self.execute_system_command(&command, env_vars)
+            self.execute_system_command(&command, env_vars, current_dir)
         }
     }
 
@@ -108,6 +116,7 @@ impl Runner {
     /// * `command` - The command configuration
     /// * `binary_path` - Full path to the custom binary
     /// * `env_vars` - Environment variables for the process
+    /// * `current_dir` - Current working directory for the command execution
     ///
     /// # Returns
     ///
@@ -118,10 +127,12 @@ impl Runner {
         command: &Command,
         binary_path: &PathBuf,
         env_vars: &Environment,
+        current_dir: &PathBuf,
     ) -> io::Result<String> {
         // eprintln!("Executing custom binary: {:?}", binary_path);
         let mut cmd = StdCommand::new(binary_path);
         cmd.args(&command.args);
+        cmd.current_dir(current_dir);
 
         for (key, value) in env_vars.iter() {
             cmd.env(key, value);
@@ -216,9 +227,11 @@ impl Runner {
         &self,
         command: &Command,
         env_vars: &Environment,
+        current_dir: &PathBuf,
     ) -> io::Result<String> {
         let mut cmd = StdCommand::new(&command.name);
         cmd.args(&command.args);
+        cmd.current_dir(current_dir);
 
         for (key, value) in env_vars.iter() {
             cmd.env(key, value);
@@ -373,7 +386,8 @@ mod tests {
             vec!["hello".to_string(), "world".to_string()],
         );
         let env_vars = Environment::new();
-        let result = runner.execute(cmd, &env_vars);
+        let current_dir = PathBuf::from(".");
+        let result = runner.execute(cmd, &env_vars, &current_dir);
 
         match result {
             Ok(output) => {
@@ -393,7 +407,8 @@ mod tests {
 
         let cmd = Command::new("definitely_nonexistent_command_12345".to_string(), vec![]);
         let env_vars = Environment::new();
-        let result = runner.execute(cmd, &env_vars);
+        let current_dir = PathBuf::from(".");
+        let result = runner.execute(cmd, &env_vars, &current_dir);
 
         assert!(result.is_err());
         let error = result.unwrap_err();
@@ -406,7 +421,8 @@ mod tests {
 
         let cmd = Command::new("".to_string(), vec![]);
         let env_vars = Environment::new();
-        let result = runner.execute(cmd, &env_vars);
+        let current_dir = PathBuf::from(".");
+        let result = runner.execute(cmd, &env_vars, &current_dir);
 
         assert!(result.is_err());
     }
@@ -421,7 +437,8 @@ mod tests {
         // Note: This test might be platform-dependent
 
         let cmd = Command::new("printenv".to_string(), vec!["TEST_ENV_VAR".to_string()]);
-        let result = runner.execute(cmd, &env_vars);
+        let current_dir = PathBuf::from(".");
+        let result = runner.execute(cmd, &env_vars, &current_dir);
 
         match result {
             Ok(output) => {
@@ -459,7 +476,8 @@ mod tests {
 
         let cmd = Command::new("test_cmd".to_string(), vec![]);
         let env_vars = Environment::new();
-        let result = runner.execute(cmd, &env_vars);
+        let current_dir = PathBuf::from(".");
+        let result = runner.execute(cmd, &env_vars, &current_dir);
 
         // Clean up
         let _ = fs::remove_dir_all(&test_dir);
@@ -486,7 +504,8 @@ mod tests {
             Command::new("cat".to_string(), vec![]).with_stdin("hello from stdin\n".to_string());
 
         let env_vars = Environment::new();
-        let result = runner.execute(cmd, &env_vars);
+        let current_dir = PathBuf::from(".");
+        let result = runner.execute(cmd, &env_vars, &current_dir);
 
         match result {
             Ok(output) => {
@@ -514,7 +533,8 @@ mod tests {
         );
 
         let env_vars = Environment::new();
-        let result = runner.execute(cmd, &env_vars);
+        let current_dir = PathBuf::from(".");
+        let result = runner.execute(cmd, &env_vars, &current_dir);
 
         match result {
             Ok(output) => {
@@ -545,7 +565,8 @@ mod tests {
             .with_stdout(output_path.clone());
 
         let env_vars = Environment::new();
-        let result = runner.execute(cmd, &env_vars);
+        let current_dir = PathBuf::from(".");
+        let result = runner.execute(cmd, &env_vars, &current_dir);
 
         match result {
             Ok(output) => {
@@ -590,7 +611,8 @@ mod tests {
             .with_append_stdout(true);
 
         let env_vars = Environment::new();
-        let result = runner.execute(cmd, &env_vars);
+        let current_dir = PathBuf::from(".");
+        let result = runner.execute(cmd, &env_vars, &current_dir);
 
         match result {
             Ok(output) => {
@@ -620,7 +642,8 @@ mod tests {
         let cmd = Command::new("cat".to_string(), vec![]).with_stdin(input_data.to_string());
 
         let env_vars = Environment::new();
-        let result = runner.execute(cmd, &env_vars);
+        let current_dir = PathBuf::from(".");
+        let result = runner.execute(cmd, &env_vars, &current_dir);
 
         match result {
             Ok(output) => {
@@ -656,7 +679,8 @@ mod tests {
             .with_stdout(output_path.clone());
 
         let env_vars = Environment::new();
-        let result = runner.execute(cmd, &env_vars);
+        let current_dir = PathBuf::from(".");
+        let result = runner.execute(cmd, &env_vars, &current_dir);
 
         match result {
             Ok(output) => {
@@ -714,7 +738,8 @@ mod tests {
             .with_stdout(output_path.clone());
 
         let env_vars = Environment::new();
-        let result = runner.execute(cmd, &env_vars);
+        let current_dir = PathBuf::from(".");
+        let result = runner.execute(cmd, &env_vars, &current_dir);
 
         match result {
             Ok(_) => {

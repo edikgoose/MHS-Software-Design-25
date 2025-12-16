@@ -157,8 +157,9 @@ fn test_pipeline_stdin_redirection_execution() {
     let bin_path = PathBuf::from("target/release");
     let runner = Runner::new(bin_path);
     let pipeline = Pipeline::new(runner);
+    let current_dir = PathBuf::from(".");
 
-    let result = pipeline.execute(cmds, &env);
+    let result = pipeline.execute(cmds, &env, &current_dir);
 
     assert!(result.is_ok(), "Pipeline execution failed");
     let output = result.unwrap();

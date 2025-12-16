@@ -133,8 +133,39 @@ impl Repl {
                                 continue;
                             }
 
+                            // Check if it's a single 'cd' command
+                            if parsed_cmds.len() == 1 && parsed_cmds[0].name == "cd" {
+                                let target = parsed_cmds[0]
+                                    .args
+                                    .first()
+                                    .map(|s| s.as_str())
+                                    .unwrap_or("");
+                                match init.change_dir(target) {
+                                    Ok(()) => {}
+                                    Err(e) => eprintln!("{}", e),
+                                }
+                                continue;
+                            }
+
+                            // Check if it's a single 'ls' command
+                            if parsed_cmds.len() == 1 && parsed_cmds[0].name == "ls" {
+                                match self.handle_ls(&parsed_cmds[0], init) {
+                                    Ok(output) => {
+                                        if !output.trim().is_empty() {
+                                            print!("{}", output);
+                                        }
+                                    }
+                                    Err(e) => eprintln!("{}", e),
+                                }
+                                continue;
+                            }
+
                             // Execute the pipeline
-                            match self.pipeline.execute(parsed_cmds, init.env_vars()) {
+                            match self.pipeline.execute(
+                                parsed_cmds,
+                                init.env_vars(),
+                                init.current_dir(),
+                            ) {
                                 Ok(output) => {
                                     if !output.trim().is_empty() {
                                         print!("{}", output);
@@ -180,6 +211,54 @@ impl Repl {
         }
     }
 
+    fn handle_ls(
+        &self,
+        cmd: &crate::modules::input::command::Command,
+        init: &Init,
+    ) -> Result<String, String> {
+        use std::fs;
+
+        let target_path = if cmd.args.is_empty() {
+            init.current_dir().clone()
+        } else {
+            let path_str = &cmd.args[0];
+            if path_str.starts_with('/') {
+                PathBuf::from(path_str)
+            } else {
+                init.current_dir().join(path_str)
+            }
+        };
+
+        // Check if path exists
+        if !target_path.exists() {
+            return Err(format!("ls: {}: No such file or directory", cmd.args[0]));
+        }
+
+        // If it's a file, just print the filename
+        if target_path.is_file() {
+            return Ok(format!(
+                "{}\n",
+                target_path.file_name().unwrap().to_string_lossy()
+            ));
+        }
+
+        // If it's a directory, list its contents
+        match fs::read_dir(&target_path) {
+            Ok(entries) => {
+                let mut names: Vec<String> = entries
+                    .filter_map(|entry| {
+                        entry
+                            .ok()
+                            .map(|e| e.file_name().to_string_lossy().to_string())
+                    })
+                    .collect();
+                names.sort();
+                Ok(names.join("\n") + "\n")
+            }
+            Err(e) => Err(format!("ls: {}: {}", target_path.display(), e)),
+        }
+    }
+
     fn show_help(&self) {
         println!("Available commands:");
         println!("Built-in commands:");
@@ -187,6 +266,8 @@ impl Repl {
         println!("  cat [files...]     - Display file contents or read from stdin");
         println!("  wc [files...]      - Count lines, words, and bytes in files or stdin");
         println!("  pwd               - Print current working directory");
+        println!("  cd [dir]          - Change current working directory");
+        println!("  ls [dir]          - List directory contents");
         println!("  grep [options] pattern [files...] - Search for pattern in files or stdin");
         println!("    Options:");
         println!("      -w, --word-regexp    Search for whole words only");
@@ -345,5 +426,115 @@ mod tests {
         // Test non-existent variable
         let no_value = init.get_env("NONEXISTENT_VAR");
         assert_eq!(no_value, None);
+    }
+
+    #[test]
+    fn test_ls_current_directory() {
+        let init = Init::new();
+        let repl = Repl::default();
+
+        let cmd = crate::modules::input::command::Command::new("ls".to_string(), vec![]);
+        let result = repl.handle_ls(&cmd, &init);
+
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        // Should list at least some files/directories
+        assert!(!output.trim().is_empty());
+    }
+
+    #[test]
+    fn test_ls_specific_directory() {
+        use std::env;
+        let init = Init::new();
+        let repl = Repl::default();
+
+        // Test with a directory that should exist
+        let test_dir = env::temp_dir();
+        if test_dir.exists() {
+            let cmd = crate::modules::input::command::Command::new(
+                "ls".to_string(),
+                vec![test_dir.to_string_lossy().to_string()],
+            );
+            let result = repl.handle_ls(&cmd, &init);
+            assert!(result.is_ok());
+        }
+    }
+
+    #[test]
+    fn test_ls_nonexistent_directory() {
+        let init = Init::new();
+        let repl = Repl::default();
+
+        let cmd = crate::modules::input::command::Command::new(
+            "ls".to_string(),
+            vec!["/nonexistent/directory/12345".to_string()],
+        );
+        let result = repl.handle_ls(&cmd, &init);
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("No such file or directory"));
+    }
+
+    #[test]
+    fn test_ls_file() {
+        use std::env;
+        use std::fs;
+        let init = Init::new();
+        let repl = Repl::default();
+
+        // Create a temporary file
+        let temp_file = env::temp_dir().join("ls_test_file");
+        let _ = fs::remove_file(&temp_file);
+        fs::write(&temp_file, "test").unwrap();
+
+        let cmd = crate::modules::input::command::Command::new(
+            "ls".to_string(),
+            vec![temp_file.to_string_lossy().to_string()],
+        );
+        let result = repl.handle_ls(&cmd, &init);
+
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(output.contains("ls_test_file"));
+
+        // Clean up
+        let _ = fs::remove_file(&temp_file);
+    }
+
+    #[test]
+    fn test_ls_output_sorted() {
+        use std::env;
+        use std::fs;
+        let init = Init::new();
+        let repl = Repl::default();
+
+        // Create a temporary directory with files
+        let test_dir = env::temp_dir().join("ls_sorted_test");
+        let _ = fs::remove_dir_all(&test_dir);
+        fs::create_dir_all(&test_dir).unwrap();
+
+        // Create files with specific names
+        fs::write(test_dir.join("zebra.txt"), "z").unwrap();
+        fs::write(test_dir.join("apple.txt"), "a").unwrap();
+        fs::write(test_dir.join("banana.txt"), "b").unwrap();
+
+        let cmd = crate::modules::input::command::Command::new(
+            "ls".to_string(),
+            vec![test_dir.to_string_lossy().to_string()],
+        );
+        let result = repl.handle_ls(&cmd, &init);
+
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+
+        // Check that output is sorted
+        assert!(lines.len() >= 3);
+        // Should be alphabetically sorted
+        assert!(lines[0] < lines[1] || lines[0] == "apple.txt");
+        assert!(lines[1] < lines[2] || lines[1] == "banana.txt");
+
+        // Clean up
+        let _ = fs::remove_dir_all(&test_dir);
     }
 }

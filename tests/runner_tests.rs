@@ -29,7 +29,8 @@ fn test_runner_stdout_redirection() {
     let cmd = Command::new("echo".to_string(), vec!["Hello World".to_string()])
         .with_stdout(output_path.clone());
 
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
 
     match result {
         Ok(output) => {
@@ -73,7 +74,8 @@ fn test_runner_stdout_append() {
         .with_append_stdout(true);
 
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
 
     match result {
         Ok(_) => {
@@ -108,7 +110,8 @@ fn test_runner_stderr_redirection() {
         .with_stderr(error_path.clone());
 
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
 
     match result {
         Ok(_) | Err(_) => {
@@ -131,7 +134,8 @@ fn test_runner_stdin_redirection() {
     let cmd = Command::new("cat".to_string(), vec![]).with_stdin(input_data.to_string());
 
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
 
     match result {
         Ok(output) => {
@@ -164,7 +168,8 @@ fn test_runner_combined_redirection() {
         .with_stderr(error_path.clone());
 
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
 
     match result {
         Ok(output) => {
@@ -194,7 +199,8 @@ fn test_runner_custom_vs_system_commands() {
     // Test custom echo (should exist in target/release)
     let cmd = Command::new("echo".to_string(), vec!["custom".to_string()]);
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
     match result {
         Ok(output) => assert!(output.contains("custom")),
         Err(e) => println!("Custom echo not available: {}", e),
@@ -203,7 +209,8 @@ fn test_runner_custom_vs_system_commands() {
     // Test system command fallback
     let cmd = Command::new("whoami".to_string(), vec![]);
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
     match result {
         Ok(_) => println!("System whoami command worked"),
         Err(e) => println!("System whoami not available: {}", e),
@@ -215,7 +222,8 @@ fn test_runner_nonexistent_command() {
     let runner = create_test_runner();
     let cmd = Command::new("definitely_nonexistent_command_12345".to_string(), vec![]);
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
 
     assert!(result.is_err());
     let error = result.unwrap_err();
@@ -234,7 +242,8 @@ fn test_runner_environment_variables() {
     // (Since env vars are now passed to execute method, not stored in Runner)
     let cmd = Command::new("echo".to_string(), vec!["$TEST_ENV_VAR".to_string()]);
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
 
     // This test verifies the runner can accept environment variables
     // The actual environment variable expansion is handled by the input processor
@@ -259,7 +268,8 @@ fn test_runner_error_handling() {
         .with_stdout("/invalid/path/that/doesnt/exist/output.txt".to_string());
 
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
     match result {
         Ok(_) => {
             // Might succeed on some systems depending on permissions
@@ -286,7 +296,8 @@ fn test_runner_error_messages_include_exit_codes() {
     // Test system command that fails (command not found)
     let cmd = Command::new("nonexistent_command_12345".to_string(), vec![]);
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
 
     match result {
         Err(e) => {
@@ -300,7 +311,8 @@ fn test_runner_error_messages_include_exit_codes() {
     // Test system command that exists but fails (like 'false' command)
     let cmd = Command::new("false".to_string(), vec![]);
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
 
     match result {
         Err(e) => {
@@ -328,7 +340,8 @@ fn test_runner_error_messages_with_stderr_redirection() {
     let cmd = Command::new("false".to_string(), vec![]).with_stderr(stderr_path.clone());
 
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
 
     match result {
         Err(e) => {
@@ -372,7 +385,8 @@ fn test_runner_error_messages_with_custom_binary_failure() {
 
     let cmd = Command::new("test_fail_binary".to_string(), vec![]);
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
 
     match result {
         Err(e) => {
@@ -405,7 +419,8 @@ fn test_runner_error_messages_with_stderr_output() {
         vec!["/nonexistent_directory_12345".to_string()],
     );
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
 
     match result {
         Err(e) => {
@@ -426,7 +441,8 @@ fn test_runner_error_messages_empty_stderr() {
     // Use 'false' command which typically exits with code 1 but produces no stderr
     let cmd = Command::new("false".to_string(), vec![]);
     let env_vars = create_test_env_vars();
-    let result = runner.execute(cmd, &env_vars);
+    let current_dir = PathBuf::from(".");
+    let result = runner.execute(cmd, &env_vars, &current_dir);
 
     match result {
         Err(e) => {
