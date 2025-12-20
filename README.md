@@ -6,7 +6,7 @@ Test coverage (covered regions | executed functions | covered lines):
 ![Static Badge](https://img.shields.io/badge/cov-88%25%20%E2%94%82%2091%25%20%E2%94%82%2084%25-21b577.svg)
 
 ## Supported functionality:
-- can run own implementations of `wc`, `echo`, `cat`, `pwd`, `grep`
+- can run own implementations of `wc`, `echo`, `cat`, `pwd`, `grep`, `cd`, `ls`
 - can run other commands if there is no own implementation
 - `exit`, `help`
 - setting environment variables
@@ -15,6 +15,22 @@ Test coverage (covered regions | executed functions | covered lines):
 - pipelines: chain commands together with `|` operator; the standard output (stdout) of each command is connected to the standard input (stdin) of the next command in the pipeline
 
 ### Built-in Commands Features
+
+#### cd (change directory)
+Navigate through the filesystem:
+- **Absolute paths**: `cd /path/to/directory`
+- **Relative paths**: `cd ../parent` or `cd subdir`
+- **Home directory**: `cd` (without arguments)
+- **Complex navigation**: `cd ../../..`
+- **Error handling**: Validates directory existence and type
+
+#### ls (list directory contents)
+Display directory contents in sorted order:
+- **Current directory**: `ls`
+- **Specific directory**: `ls /path/to/dir`
+- **File info**: `ls file.txt` (shows filename)
+- **Relative/absolute paths**: Supports both
+- **Sorted output**: Alphabetically ordered entries
 
 #### grep
 A powerful text search utility with the following features:
@@ -81,6 +97,30 @@ Goodbye!
 > cat file.txt | wc -l
 > cat file1.txt file2.txt | grep "pattern" > results.txt
 > cat data.txt | grep "error" | wc -l
+```
+
+#### cd and ls Examples
+
+```
+> pwd
+/Users/username/projects
+> ls
+file1.txt
+file2.txt
+subdir
+> cd subdir
+> pwd
+/Users/username/projects/subdir
+> cd ..
+> pwd
+/Users/username/projects
+> cd /tmp
+> ls
+temp1.txt
+temp2.txt
+> cd
+> pwd
+/Users/username
 ```
 
 #### grep Examples
